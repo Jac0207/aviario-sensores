@@ -27,8 +27,13 @@ app.post('/dados', (req, res) => {
 app.get('/dados', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
+    const recebido = new Date(ultimoDado.timestamp);
+    const segundos = (agora - recebido) / 1000;
+    const online = segundos <= 15;
+
     const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth()+1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
-    res.json({ ...ultimoDado, data: dataStr });
+
+    res.json({ ...ultimoDado, data: dataStr, online });
   } else {
     res.status(404).json({ erro: 'Nenhum dado disponível ainda.' });
   }
