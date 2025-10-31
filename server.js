@@ -3,18 +3,21 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Armazena o último dado recebido
+// Armazena o último dado de temperatura/umidade
 let ultimoDado = {};
 
-// Rota POST: recebe dados do ESP32
+// Armazena o último dado de fluxo de água
+let ultimoFluxo = {};
+
+// Rota POST: recebe temperatura e umidade
 app.post('/dados', (req, res) => {
   const { temperatura, umidade } = req.body;
 
   if (typeof temperatura !== 'number' || typeof umidade !== 'number') {
+    console.log('❌ Dados inválidos recebidos em /dados:', req.body);
     return res.status(400).json({ erro: 'Dados inválidos' });
   }
 
@@ -24,11 +27,11 @@ app.post('/dados', (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  console.log(`📡 Dados recebidos: ${temperatura} °C, ${umidade} %`);
-  res.send('Dados recebidos com sucesso!');
+  console.log(`🌡️ Dados recebidos: ${temperatura} °C, ${umidade} %`);
+  res.send('Dados de temperatura/umidade recebidos com sucesso!');
 });
 
-// Rota GET: consulta os dados no app
+// Rota GET: consulta temperatura e umidade
 app.get('/dados', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
@@ -44,7 +47,42 @@ app.get('/dados', (req, res) => {
   }
 });
 
-// Inicializa o servidor
+// Rota POST: recebe fluxo de água
+app.post('/fluxo', (req, res) => {
+  const { litrosPorMinuto, sensorOnline } = req.body;
+
+  if (typeof litrosPorMinuto !== 'number') {
+    console.log('❌ Dados inválidos recebidos em /fluxo:', req.body);
+    return res.status(400).json({ erro: 'Dados de fluxo inválidos' });
+  }
+
+  ultimoFluxo = {
+    litrosPorMinuto,
+    sensorOnline: !!sensorOnline,
+    timestamp: new Date().toISOString()
+  };
+
+  console.log(`💧 Fluxo recebido: ${litrosPorMinuto} L/min`);
+  res.send('Dados de fluxo recebidos com sucesso!');
+});
+
+// Rota GET: consulta fluxo de água
+app.get('/fluxo', (req, res) => {
+  if (ultimoFluxo.litrosPorMinuto !== undefined) {
+    const agora = new Date();
+    const recebido = new Date(ultimoFluxo.timestamp);
+    const segundos = (agora - recebido) / 1000;
+    const online = segundos <= 15;
+
+    const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth()+1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
+
+    res.json({ ...ultimoFluxo, data: dataStr, online });
+  } else {
+    res.status(404).json({ erro: 'Nenhum dado de fluxo disponível ainda.' });
+  }
+});
+
+// Inicia o servidor
 app.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
 });
