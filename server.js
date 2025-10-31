@@ -1,18 +1,23 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware para interpretar JSON
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-// Variável para armazenar o último dado recebido
+// Armazena o último dado recebido
 let ultimoDado = {};
 
-// Rota POST para receber dados do ESP32
+// Rota POST: recebe dados do ESP32
 app.post('/dados', (req, res) => {
   const { temperatura, umidade } = req.body;
 
-  // Armazena os dados recebidos
+  if (typeof temperatura !== 'number' || typeof umidade !== 'number') {
+    return res.status(400).json({ erro: 'Dados inválidos' });
+  }
+
   ultimoDado = {
     temperatura,
     umidade,
@@ -23,7 +28,7 @@ app.post('/dados', (req, res) => {
   res.send('Dados recebidos com sucesso!');
 });
 
-// Rota GET para seu app acessar os dados
+// Rota GET: consulta os dados no app
 app.get('/dados', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
@@ -39,7 +44,7 @@ app.get('/dados', (req, res) => {
   }
 });
 
-// Inicia o servidor
+// Inicializa o servidor
 app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
+  console.log(`🚀 Servidor rodando na porta ${port}`);
 });
