@@ -7,12 +7,14 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 🔐 Inicializa o Firebase Admin SDK
-const serviceAccount = require('./seu-arquivo-de-chave.json'); // Substitua pelo caminho correto
-
+// 🔐 Inicializa o Firebase Admin SDK com variáveis de ambiente
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://aviario-sensores-default-rtdb.firebaseio.com'
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+  }),
+  databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
 const db = admin.database();
@@ -38,11 +40,14 @@ app.post('/dados', async (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  // Salva no Firebase
-  await db.ref('dados').push(ultimoDado);
-
-  console.log(`🌡️ Dados recebidos: ${temperatura} °C, ${umidade} %`);
-  res.send('Dados de temperatura/umidade recebidos com sucesso!');
+  try {
+    await db.ref('dados').push(ultimoDado);
+    console.log('✅ Dado salvo no Firebase:', ultimoDado);
+    res.send('Dados de temperatura/umidade recebidos com sucesso!');
+  } catch (erro) {
+    console.error('❌ Erro ao salvar em /dados:', erro);
+    res.status(500).send('Erro ao salvar dados no Firebase.');
+  }
 });
 
 // Rota GET: consulta temperatura e umidade
@@ -76,11 +81,14 @@ app.post('/fluxo', async (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  // Salva no Firebase
-  await db.ref('fluxo').push(ultimoFluxo);
-
-  console.log(`💧 Fluxo recebido: ${litrosPorMinuto} L/min`);
-  res.send('Dados de fluxo recebidos com sucesso!');
+  try {
+    await db.ref('fluxo').push(ultimoFluxo);
+    console.log('✅ Fluxo salvo no Firebase:', ultimoFluxo);
+    res.send('Dados de fluxo recebidos com sucesso!');
+  } catch (erro) {
+    console.error('❌ Erro ao salvar em /fluxo:', erro);
+    res.status(500).send('Erro ao salvar dados no Firebase.');
+  }
 });
 
 // Rota GET: consulta fluxo de água
