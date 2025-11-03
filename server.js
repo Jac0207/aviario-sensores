@@ -1,10 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+const admin = require('firebase-admin');
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// 🔐 Inicializa o Firebase Admin SDK
+const serviceAccount = require('./seu-arquivo-de-chave.json'); // Substitua pelo caminho correto
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://aviario-sensores-default-rtdb.firebaseio.com'
+});
+
+const db = admin.database();
 
 // Armazena o último dado de temperatura/umidade
 let ultimoDado = {};
@@ -13,7 +24,7 @@ let ultimoDado = {};
 let ultimoFluxo = {};
 
 // Rota POST: recebe temperatura e umidade
-app.post('/dados', (req, res) => {
+app.post('/dados', async (req, res) => {
   const { temperatura, umidade } = req.body;
 
   if (typeof temperatura !== 'number' || typeof umidade !== 'number') {
@@ -27,6 +38,9 @@ app.post('/dados', (req, res) => {
     timestamp: new Date().toISOString()
   };
 
+  // Salva no Firebase
+  await db.ref('dados').push(ultimoDado);
+
   console.log(`🌡️ Dados recebidos: ${temperatura} °C, ${umidade} %`);
   res.send('Dados de temperatura/umidade recebidos com sucesso!');
 });
@@ -39,7 +53,7 @@ app.get('/dados', (req, res) => {
     const segundos = (agora - recebido) / 1000;
     const online = segundos <= 15;
 
-    const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth()+1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
+    const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth() + 1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
 
     res.json({ ...ultimoDado, data: dataStr, online });
   } else {
@@ -48,7 +62,7 @@ app.get('/dados', (req, res) => {
 });
 
 // Rota POST: recebe fluxo de água
-app.post('/fluxo', (req, res) => {
+app.post('/fluxo', async (req, res) => {
   const { litrosPorMinuto, sensorOnline } = req.body;
 
   if (typeof litrosPorMinuto !== 'number') {
@@ -62,6 +76,9 @@ app.post('/fluxo', (req, res) => {
     timestamp: new Date().toISOString()
   };
 
+  // Salva no Firebase
+  await db.ref('fluxo').push(ultimoFluxo);
+
   console.log(`💧 Fluxo recebido: ${litrosPorMinuto} L/min`);
   res.send('Dados de fluxo recebidos com sucesso!');
 });
@@ -74,11 +91,50 @@ app.get('/fluxo', (req, res) => {
     const segundos = (agora - recebido) / 1000;
     const online = segundos <= 15;
 
-    const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth()+1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
+    const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth() + 1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
 
     res.json({ ...ultimoFluxo, data: dataStr, online });
   } else {
     res.status(404).json({ erro: 'Nenhum dado de fluxo disponível ainda.' });
+  }
+});
+
+// Rota GET: envia dados de teste para o Firebase
+app.get('/teste', async (req, res) => {
+  const dadosTeste = {
+    temperatura: 25.5,
+    umidade: 60.2,
+    litrosPorMinuto: 4.8,
+    sensorOnline: true,
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    await db.ref('testeManual').push(dadosTeste);
+    console.log('✅ Dados de teste enviados ao Firebase:', dadosTeste);
+    res.send('Dados de teste enviados com sucesso!');
+  } catch (erro) {
+    console.error('❌ Erro ao enviar dados de teste:', erro);
+    res.status(500).send('Erro ao enviar dados de teste.');
+  }
+});
+
+// Rota GET: consulta os últimos dados salvos no Firebase
+app.get('/verificar', async (req, res) => {
+  try {
+    const dadosSnapshot = await db.ref('dados').limitToLast(1).once('value');
+    const fluxoSnapshot = await db.ref('fluxo').limitToLast(1).once('value');
+
+    const ultimoDadoFirebase = dadosSnapshot.exists() ? Object.values(dadosSnapshot.val())[0] : null;
+    const ultimoFluxoFirebase = fluxoSnapshot.exists() ? Object.values(fluxoSnapshot.val())[0] : null;
+
+    res.json({
+      dados: ultimoDadoFirebase || 'Nenhum dado encontrado',
+      fluxo: ultimoFluxoFirebase || 'Nenhum fluxo encontrado'
+    });
+  } catch (erro) {
+    console.error('❌ Erro ao consultar dados do Firebase:', erro);
+    res.status(500).send('Erro ao consultar dados do Firebase.');
   }
 });
 
