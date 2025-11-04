@@ -1,31 +1,38 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
+// 🔐 Verifica se a chave está presente
+if (!process.env.FIREBASE_PRIVATE_KEY) {
+  console.error('❌ Variável FIREBASE_PRIVATE_KEY não encontrada. Verifique o .env ou Render.');
+  process.exit(1);
+}
+
+console.log('🔐 Chave detectada:', process.env.FIREBASE_PRIVATE_KEY.slice(0, 30));
+
 // 🔐 Inicializa o Firebase Admin SDK com variáveis de ambiente
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    privateKey: JSON.parse(`"${process.env.FIREBASE_PRIVATE_KEY}"`)
   }),
   databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
 const db = admin.database();
 
-// Armazena o último dado de temperatura/umidade
 let ultimoDado = {};
-
-// Armazena o último dado de fluxo de água
 let ultimoFluxo = {};
 
-// Rota POST: recebe temperatura e umidade
+// POST: recebe temperatura e umidade
 app.post('/dados', async (req, res) => {
   const { temperatura, umidade } = req.body;
 
@@ -50,13 +57,13 @@ app.post('/dados', async (req, res) => {
   }
 });
 
-// Rota GET: consulta temperatura e umidade
+// GET: consulta temperatura e umidade
 app.get('/dados', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
     const recebido = new Date(ultimoDado.timestamp);
     const segundos = (agora - recebido) / 1000;
-    const online = segundos <= 15;
+    const online = segundos <= 75;
 
     const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth() + 1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
 
@@ -66,17 +73,17 @@ app.get('/dados', (req, res) => {
   }
 });
 
-// Rota POST: recebe fluxo de água
+// POST: recebe volume real de água
 app.post('/fluxo', async (req, res) => {
-  const { litrosPorMinuto, sensorOnline } = req.body;
+  const { litrosReal, sensorOnline } = req.body;
 
-  if (typeof litrosPorMinuto !== 'number') {
+  if (typeof litrosReal !== 'number') {
     console.log('❌ Dados inválidos recebidos em /fluxo:', req.body);
     return res.status(400).json({ erro: 'Dados de fluxo inválidos' });
   }
 
   ultimoFluxo = {
-    litrosPorMinuto,
+    litrosReal,
     sensorOnline: !!sensorOnline,
     timestamp: new Date().toISOString()
   };
@@ -91,13 +98,13 @@ app.post('/fluxo', async (req, res) => {
   }
 });
 
-// Rota GET: consulta fluxo de água
+// GET: consulta fluxo de água
 app.get('/fluxo', (req, res) => {
-  if (ultimoFluxo.litrosPorMinuto !== undefined) {
+  if (ultimoFluxo.litrosReal !== undefined) {
     const agora = new Date();
     const recebido = new Date(ultimoFluxo.timestamp);
     const segundos = (agora - recebido) / 1000;
-    const online = segundos <= 15;
+    const online = segundos <= 75;
 
     const dataStr = `${agora.getDate().toString().padStart(2, '0')}/${(agora.getMonth() + 1).toString().padStart(2, '0')}/${agora.getFullYear()}`;
 
@@ -107,12 +114,12 @@ app.get('/fluxo', (req, res) => {
   }
 });
 
-// Rota GET: envia dados de teste para o Firebase
+// GET: envia dados de teste para o Firebase
 app.get('/teste', async (req, res) => {
   const dadosTeste = {
     temperatura: 25.5,
     umidade: 60.2,
-    litrosPorMinuto: 4.8,
+    litrosReal: 12.5,
     sensorOnline: true,
     timestamp: new Date().toISOString()
   };
@@ -127,7 +134,7 @@ app.get('/teste', async (req, res) => {
   }
 });
 
-// Rota GET: consulta os últimos dados salvos no Firebase
+// GET: consulta os últimos dados salvos no Firebase
 app.get('/verificar', async (req, res) => {
   try {
     const dadosSnapshot = await db.ref('dados').limitToLast(1).once('value');
