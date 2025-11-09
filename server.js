@@ -32,11 +32,16 @@ const db = admin.database();
 let ultimoDado = {};
 let ultimoFluxo = {};
 
-// POST: recebe temperatura e umidade
+// POST: recebe dados ambientais
 app.post('/dados', async (req, res) => {
-  const { temperatura, umidade } = req.body;
+  const { temperatura, umidade, eco2, tvoc } = req.body;
 
-  if (typeof temperatura !== 'number' || typeof umidade !== 'number') {
+  if (
+    typeof temperatura !== 'number' ||
+    typeof umidade !== 'number' ||
+    typeof eco2 !== 'number' ||
+    typeof tvoc !== 'number'
+  ) {
     console.log('❌ Dados inválidos recebidos em /dados:', req.body);
     return res.status(400).json({ erro: 'Dados inválidos' });
   }
@@ -44,20 +49,22 @@ app.post('/dados', async (req, res) => {
   ultimoDado = {
     temperatura,
     umidade,
+    eco2,
+    tvoc,
     timestamp: new Date().toISOString()
   };
 
   try {
     await db.ref('dados').push(ultimoDado);
-    console.log('✅ Dado salvo no Firebase:', ultimoDado);
-    res.send('Dados de temperatura/umidade recebidos com sucesso!');
+    console.log('✅ Dados ambientais salvos no Firebase:', ultimoDado);
+    res.send('Dados ambientais recebidos com sucesso!');
   } catch (erro) {
     console.error('❌ Erro ao salvar em /dados:', erro);
     res.status(500).send('Erro ao salvar dados no Firebase.');
   }
 });
 
-// GET: consulta temperatura e umidade
+// GET: consulta dados ambientais
 app.get('/dados', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
@@ -111,26 +118,6 @@ app.get('/fluxo', (req, res) => {
     res.json({ ...ultimoFluxo, data: dataStr, online });
   } else {
     res.status(404).json({ erro: 'Nenhum dado de fluxo disponível ainda.' });
-  }
-});
-
-// GET: envia dados de teste para o Firebase
-app.get('/teste', async (req, res) => {
-  const dadosTeste = {
-    temperatura: 25.5,
-    umidade: 60.2,
-    litrosReal: 12.5,
-    sensorOnline: true,
-    timestamp: new Date().toISOString()
-  };
-
-  try {
-    await db.ref('testeManual').push(dadosTeste);
-    console.log('✅ Dados de teste enviados ao Firebase:', dadosTeste);
-    res.send('Dados de teste enviados com sucesso!');
-  } catch (erro) {
-    console.error('❌ Erro ao enviar dados de teste:', erro);
-    res.status(500).send('Erro ao enviar dados de teste.');
   }
 });
 
