@@ -60,6 +60,7 @@ app.post('/dados', async (req, res) => {
     };
 
     await db.ref(`dados/${id}`).set(novoDado);
+    ultimoDado = novoDado;
 
     console.log('✅ Dados ambientais salvos com ID:', id);
     res.status(200).json(novoDado);
