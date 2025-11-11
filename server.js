@@ -46,21 +46,23 @@ app.post('/dados', async (req, res) => {
     return res.status(400).json({ erro: 'Dados inválidos' });
   }
 
-  const novoDado = {
-    temperatura,
-    umidade,
-    eco2,
-    tvoc,
-    timestamp: new Date().toISOString()
-  };
-
   try {
     const ref = db.ref('dados').push();
-    await ref.set(novoDado);
-
     const id = ref.key;
+
+    const novoDado = {
+      id,
+      temperatura,
+      umidade,
+      eco2,
+      tvoc,
+      timestamp: new Date().toISOString()
+    };
+
+    await db.ref(`dados/${id}`).set(novoDado);
+
     console.log('✅ Dados ambientais salvos com ID:', id);
-    res.status(200).json({ id, ...novoDado });
+    res.status(200).json(novoDado);
   } catch (erro) {
     console.error('❌ Erro ao salvar em /dados:', erro);
     res.status(500).send('Erro ao salvar dados no Firebase.');
