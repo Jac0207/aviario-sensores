@@ -46,7 +46,7 @@ app.post('/dados', async (req, res) => {
     return res.status(400).json({ erro: 'Dados inválidos' });
   }
 
-  ultimoDado = {
+  const novoDado = {
     temperatura,
     umidade,
     eco2,
@@ -55,12 +55,36 @@ app.post('/dados', async (req, res) => {
   };
 
   try {
-    await db.ref('dados').push(ultimoDado);
-    console.log('✅ Dados ambientais salvos no Firebase:', ultimoDado);
-    res.send('Dados ambientais recebidos com sucesso!');
+    const ref = db.ref('dados').push();
+    await ref.set(novoDado);
+
+    const id = ref.key;
+    console.log('✅ Dados ambientais salvos com ID:', id);
+    res.status(200).json({ id, ...novoDado });
   } catch (erro) {
     console.error('❌ Erro ao salvar em /dados:', erro);
     res.status(500).send('Erro ao salvar dados no Firebase.');
+  }
+});
+
+// DELETE: exclui dado por ID
+app.delete('/dados/:id', async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const ref = db.ref(`dados/${id}`);
+    const snapshot = await ref.once('value');
+
+    if (!snapshot.exists()) {
+      return res.status(404).send(`Registro com ID ${id} não encontrado.`);
+    }
+
+    await ref.remove();
+    console.log(`🗑️ Registro com ID ${id} excluído do Firebase.`);
+    res.status(200).send(`Registro com ID ${id} excluído com sucesso.`);
+  } catch (erro) {
+    console.error('❌ Erro ao excluir dado:', erro);
+    res.status(500).send('Erro ao excluir dado do Firebase.');
   }
 });
 
