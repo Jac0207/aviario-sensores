@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.database();
 let ultimoDado = {};
 
-// POST: recebe dados ambientais
+// ✅ POST: recebe dados ambientais
 router.post('/', async (req, res) => {
   const { temperatura, umidade, eco2, tvoc, sensorOnline } = req.body;
 
@@ -37,6 +37,7 @@ router.post('/', async (req, res) => {
     ultimoDado = novoDado;
 
     console.log('✅ Dados ambientais salvos com ID:', id);
+    // ✅ retorna sensorOnline junto
     res.status(200).json(novoDado);
   } catch (erro) {
     console.error('❌ Erro ao salvar em /dados:', erro);
@@ -44,7 +45,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET: consulta dados ambientais
+// ✅ GET: consulta dados ambientais
 router.get('/', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
@@ -60,7 +61,7 @@ router.get('/', (req, res) => {
       ...ultimoDado,
       data: dataStr,
       online,
-      sensorOnline: ultimoDado.sensorOnline === true // ✅ retorna também
+      sensorOnline: ultimoDado.sensorOnline === true // ✅ garante retorno
     });
   } else {
     res.status(404).json({ erro: 'Nenhum dado disponível ainda.' });

@@ -27,7 +27,7 @@ admin.initializeApp({
   databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
-// ✅ Rotas
+// ✅ Rotas externas
 const dadosRoutes = require('./routes/dados');
 const fluxoRoutes = require('./routes/fluxo');
 
