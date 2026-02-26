@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const RegistroFluxo = require('../models/registroFluxo');
 
 // POST: salvar registro
 router.post('/', async (req, res) => {
