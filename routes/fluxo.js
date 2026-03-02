@@ -9,7 +9,6 @@ let ultimoFluxo = {};
 router.post('/', async (req, res) => {
   const { litrosReal, fluxoAtivo } = req.body;
 
-  // Validação básica
   if (typeof litrosReal !== 'number') {
     return res.status(400).json({ erro: 'litrosReal deve ser número' });
   }
