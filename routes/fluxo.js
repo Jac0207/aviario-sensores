@@ -7,10 +7,14 @@ let ultimoFluxo = {};
 
 // ✅ POST: recebe dados de fluxo e atualiza total do dia
 router.post('/', async (req, res) => {
-  const { litrosReal, sensorOnline, fluxoAtivo } = req.body;
+  const { litrosReal, fluxoAtivo } = req.body;
 
+  // Validação básica
   if (typeof litrosReal !== 'number') {
-    return res.status(400).json({ erro: 'Dados inválidos' });
+    return res.status(400).json({ erro: 'litrosReal deve ser número' });
+  }
+  if (typeof fluxoAtivo !== 'boolean') {
+    return res.status(400).json({ erro: 'fluxoAtivo deve ser booleano' });
   }
 
   try {
@@ -20,8 +24,7 @@ router.post('/', async (req, res) => {
     const novoFluxo = {
       id,
       litrosReal,
-      sensorOnline: !!sensorOnline,
-      fluxoAtivo: !!fluxoAtivo,
+      fluxoAtivo,
       timestamp: new Date().toISOString()
     };
 
