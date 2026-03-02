@@ -1,29 +1,53 @@
+// Revisado: versão Firebase sem RegistroFluxo
 const express = require('express');
 const router = express.Router();
+const admin = require('firebase-admin');
 
-// POST: salvar registro
+const db = admin.database();
+let ultimoFluxo = {};
+
+// ✅ POST: recebe dados de fluxo
 router.post('/', async (req, res) => {
+  const { litrosReal, sensorOnline, fluxoAtivo } = req.body;
+
+  if (typeof litrosReal !== 'number') {
+    console.log('❌ Dados inválidos recebidos em /fluxo:', req.body);
+    return res.status(400).json({ erro: 'Dados inválidos' });
+  }
+
   try {
-    const { litrosPorMinuto, sensorOnline } = req.body;
-    const registro = new RegistroFluxo({ litrosPorMinuto, sensorOnline });
-    await registro.save();
-    res.status(201).json({ sucesso: true });
-  } catch (err) {
-    res.status(500).json({ erro: err.message });
+    const ref = db.ref('fluxo').push();
+    const id = ref.key;
+
+    const novoFluxo = {
+      id,
+      litrosReal,
+      sensorOnline: !!sensorOnline,
+      fluxoAtivo: !!fluxoAtivo,
+      timestamp: new Date().toISOString()
+    };
+
+    await db.ref(`fluxo/${id}`).set(novoFluxo);
+    ultimoFluxo = novoFluxo;
+
+    console.log('✅ Fluxo salvo no Firebase:', novoFluxo);
+    res.status(200).json(novoFluxo);
+  } catch (erro) {
+    console.error('❌ Erro ao salvar em /fluxo:', erro);
+    res.status(500).send('Erro ao salvar fluxo no Firebase.');
   }
 });
 
-// GET: listar registros
-router.get('/', async (req, res) => {
-  try {
-    const registros = await RegistroFluxo.find().sort({ timestamp: -1 }).limit(100);
-    res.json(registros);
-  } catch (err) {
-    res.status(500).json({ erro: err.message });
+// ✅ GET: consulta último fluxo
+router.get('/', (req, res) => {
+  if (ultimoFluxo.litrosReal !== undefined) {
+    res.json(ultimoFluxo);
+  } else {
+    res.status(404).json({ erro: 'Nenhum fluxo disponível ainda.' });
   }
 });
 
-// GET: total por dia
+// ✅ GET: total por dia
 router.get('/total-dia', async (req, res) => {
   try {
     const hoje = new Date();
@@ -31,14 +55,21 @@ router.get('/total-dia', async (req, res) => {
     const amanha = new Date(hoje);
     amanha.setDate(hoje.getDate() + 1);
 
-    const registros = await RegistroFluxo.find({
-      timestamp: { $gte: hoje, $lt: amanha },
-    });
+    const snapshot = await db.ref('fluxo').orderByChild('timestamp')
+      .startAt(hoje.toISOString())
+      .endAt(amanha.toISOString())
+      .once('value');
 
-    const total = registros.reduce((soma, r) => soma + r.litrosPorMinuto, 0);
+    let total = 0;
+    if (snapshot.exists()) {
+      const registros = Object.values(snapshot.val());
+      total = registros.reduce((soma, r) => soma + (r.litrosReal || 0), 0);
+    }
+
     res.json({ totalHoje: total.toFixed(2) });
-  } catch (err) {
-    res.status(500).json({ erro: err.message });
+  } catch (erro) {
+    console.error('❌ Erro ao calcular total-dia:', erro);
+    res.status(500).json({ erro: 'Erro ao calcular total-dia' });
   }
 });
 
