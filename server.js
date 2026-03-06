@@ -34,15 +34,27 @@ const fluxoRoutes = require('./routes/fluxo');
 app.use('/dados', dadosRoutes);
 app.use('/fluxo', fluxoRoutes);
 
-// ✅ Endpoint de verificação (últimos registros)
+/// ✅ Endpoint de verificação (últimos registros)
 app.get('/verificar', async (req, res) => {
   try {
     const db = admin.database();
-    const dadosSnapshot = await db.ref('dados').limitToLast(1).once('value');
+
+    // 🔹 gera chave do dia atual (yyyy-MM-dd)
+    const hoje = new Date().toISOString().split("T")[0];
+
+    // 🔹 busca último dado ambiental do dia
+    const dadosSnapshot = await db.ref(`dados/${hoje}`).limitToLast(1).once('value');
+
+    // 🔹 busca último fluxo (se também estiver organizado por dia, ajuste igual)
     const fluxoSnapshot = await db.ref('fluxo').limitToLast(1).once('value');
 
-    const ultimoDadoFirebase = dadosSnapshot.exists() ? Object.values(dadosSnapshot.val())[0] : null;
-    const ultimoFluxoFirebase = fluxoSnapshot.exists() ? Object.values(fluxoSnapshot.val())[0] : null;
+    const ultimoDadoFirebase = dadosSnapshot.exists()
+      ? Object.values(dadosSnapshot.val())[0]
+      : null;
+
+    const ultimoFluxoFirebase = fluxoSnapshot.exists()
+      ? Object.values(fluxoSnapshot.val())[0]
+      : null;
 
     res.json({
       dados: ultimoDadoFirebase || 'Nenhum dado encontrado',
