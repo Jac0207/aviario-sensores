@@ -20,7 +20,11 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const ref = db.ref('dados').push();
+    // 🔹 gera chave do dia atual (yyyy-MM-dd)
+    const hoje = new Date().toISOString().split("T")[0];
+
+    // 🔹 cria referência dentro do nó do dia
+    const ref = db.ref(`dados/${hoje}`).push();
     const id = ref.key;
 
     const novoDado = {
@@ -29,15 +33,14 @@ router.post('/', async (req, res) => {
       umidade,
       eco2,
       tvoc,
-      sensorOnline: !!sensorOnline, // ✅ salva também
+      sensorOnline: !!sensorOnline,
       timestamp: new Date().toISOString()
     };
 
-    await db.ref(`dados/${id}`).set(novoDado);
+    await ref.set(novoDado);
     ultimoDado = novoDado;
 
-    console.log('✅ Dados ambientais salvos com ID:', id);
-    // ✅ retorna sensorOnline junto
+    console.log(`✅ Dados salvos em /dados/${hoje} com ID:`, id);
     res.status(200).json(novoDado);
   } catch (erro) {
     console.error('❌ Erro ao salvar em /dados:', erro);
@@ -45,7 +48,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ GET: consulta dados ambientais
+// ✅ GET: consulta último dado
 router.get('/', (req, res) => {
   if (ultimoDado.temperatura && ultimoDado.umidade) {
     const agora = new Date();
@@ -61,7 +64,7 @@ router.get('/', (req, res) => {
       ...ultimoDado,
       data: dataStr,
       online,
-      sensorOnline: ultimoDado.sensorOnline === true // ✅ garante retorno
+      sensorOnline: ultimoDado.sensorOnline === true
     });
   } else {
     res.status(404).json({ erro: 'Nenhum dado disponível ainda.' });
